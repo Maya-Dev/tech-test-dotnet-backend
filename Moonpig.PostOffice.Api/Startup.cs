@@ -1,10 +1,14 @@
 ﻿namespace Moonpig.PostOffice.Api
 {
+    using MediatR;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Hosting;
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Hosting;
+    using Moonpig.PostOffice.Api.Repositories.Concretes;
+    using Moonpig.PostOffice.Api.Repositories.Contracts;
+    using Moonpig.PostOffice.Data;
 
     public class Startup
     {
@@ -18,6 +22,10 @@
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddMediatR(typeof(Startup));
+            services.AddTransient<IDbContext, DbContext>();
+            services.AddTransient<IProductRepository, ProductRepository>();
+            services.AddTransient<ISupplierRepository, SupplierRepository>();
             services.AddControllers();
         }
 

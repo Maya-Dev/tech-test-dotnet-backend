@@ -1,4 +1,4 @@
-﻿namespace Moonpig.PostOffice.Api.Model
+﻿namespace Moonpig.PostOffice.Api.Models
 {
     using System;
 
