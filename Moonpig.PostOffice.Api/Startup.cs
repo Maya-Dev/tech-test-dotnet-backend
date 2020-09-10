@@ -24,11 +24,16 @@
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddMediatR(typeof(Startup));
+            services.AddProblemDetails();
+            ConfigureInversionOfControl(services);
+            services.AddControllers();
+        }
+
+        private void ConfigureInversionOfControl(IServiceCollection services)
+        {
             services.AddTransient<IDbContext, DbContext>();
             services.AddTransient<IProductRepository, ProductRepository>();
             services.AddTransient<ISupplierRepository, SupplierRepository>();
-            services.AddProblemDetails();
-            services.AddControllers();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
