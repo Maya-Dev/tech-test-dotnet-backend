@@ -46,7 +46,7 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Attributes
             var isValid = attribute.IsValid(new List<int>(){1});
 
             //Assert
-            isValid.ShouldBeFalse();
+            isValid.ShouldBeTrue();
         }
     }
 }
