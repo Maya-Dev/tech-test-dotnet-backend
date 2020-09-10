@@ -65,7 +65,7 @@
                                new Product { ProductId = 5, Name = "Canvas", SupplierId = 1 },
                                new Product { ProductId = 6, Name = "Plant", SupplierId = 2 },
                                new Product { ProductId = 7, Name = "Alcohol", SupplierId = 1 },
-                               new Product { ProductId = 8, Name = "Box Set", SupplierId = 7 },
+                               //new Product { ProductId = 8, Name = "Box Set", SupplierId = 7 }, //TODO resolve why this has nonexistent supplier attached to it
                                new Product { ProductId = 9, Name = "Frozen Doll", SupplierId = 5 },
                                new Product { ProductId = 10, Name = "Personalised Tacky Thshrt", SupplierId = 6 },
                            }.AsQueryable();
