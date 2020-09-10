@@ -44,6 +44,7 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Controllers
                 ProductIds = new List<int>() {productId},
                 OrderDate = new DateTime(2020, 09, 09)
             };
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
             
             //Act
             handler.Handle(order, default(CancellationToken));
@@ -60,6 +61,7 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Controllers
                 ProductIds = new List<int>() {productId},
                 OrderDate = new DateTime(2020, 09, 09)
             };
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
             
             //Act
             handler.Handle(order, default(CancellationToken));
@@ -87,6 +89,7 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Controllers
             {
                 Date = despatchDate
             };
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
 
             //Act
             var actualDespatchDate = handler.Handle(order, default(CancellationToken)).Result;
@@ -103,6 +106,7 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Controllers
                 ProductIds = new List<int>() {productId, productId},
                 OrderDate = new DateTime(2020, 09, 09)
             };
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
             
             //Act
             handler.Handle(order, default(CancellationToken));
@@ -119,6 +123,7 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Controllers
                 ProductIds = new List<int>() {productId, productId},
                 OrderDate = new DateTime(2020, 09, 09)
             };
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
             
             //Act
             handler.Handle(order, default(CancellationToken));
@@ -143,12 +148,81 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Controllers
             };
             mockProductRepository.Setup(x => x.GetSupplierId(2)).Returns(2);
             mockSupplierRepository.Setup(x => x.GetLeadTime(2)).Returns(1);
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
 
             //Act
             var actualDespatchDate = handler.Handle(order, default(CancellationToken)).Result;
 
             //Assert
             actualDespatchDate.Date.ShouldBe(expectedDespatchDate.Date);
+        }
+
+        [Fact]
+        public void Test_Handle_CallsDoProductsExistOnce_WhenCalled()
+        {
+            //Arrange
+            order = new Order(){
+                ProductIds = new List<int>() {productId},
+                OrderDate = new DateTime(2020, 09, 09)
+            };
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(false);
+            
+            //Act
+            handler.Handle(order, default(CancellationToken));
+
+            //Assert
+            mockProductRepository.Verify(x => x.DoProductsExist(order.ProductIds), Times.Once);
+        }
+
+        [Fact]
+        public void Test_Handle_DoesNotCallGetSupplierId_WhenDoProductsExistsReturnsFalse()
+        {
+            //Arrange
+            order = new Order(){
+                ProductIds = new List<int>() {productId},
+                OrderDate = new DateTime(2020, 09, 09)
+            };
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(false);
+            
+            //Act
+            handler.Handle(order, default(CancellationToken));
+
+            //Assert
+            mockProductRepository.Verify(x => x.GetSupplierId(productId), Times.Never);
+        }
+
+        [Fact]
+        public void Test_Handle_DoesNotCallGetLeadTime_WhenDoProductsExistsReturnsFalse()
+        {
+            //Arrange
+            order = new Order(){
+                ProductIds = new List<int>() {productId},
+                OrderDate = new DateTime(2020, 09, 09)
+            };
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(false);
+            
+            //Act
+            handler.Handle(order, default(CancellationToken));
+
+            //Assert
+            mockSupplierRepository.Verify(x => x.GetLeadTime(supplierId), Times.Never);
+        }
+
+        [Fact]
+        public void Test_Handle_ReturnsNull_WhenCalledWithNonExistentProductIds()
+        {
+            //Arrange
+            order = new Order(){
+                ProductIds = new List<int>() {productId},
+                OrderDate = new DateTime(2020, 09, 09)
+            };
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(false);
+            
+            //Act
+            var actualDespatchDate = handler.Handle(order, default(CancellationToken)).Result;
+
+            //Assert
+            actualDespatchDate.ShouldBeNull();
         }
     }
 }

@@ -10,6 +10,7 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Controllers
     using Moonpig.PostOffice.Api.Models;
     using System.Threading.Tasks;
     using System.Threading;
+    using Microsoft.AspNetCore.Mvc;
 
     public class DespatchDateControllerUnitTests
     {
@@ -50,10 +51,25 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Controllers
             //Arrange
 
             //Act
-            var actualDespatchDate = controller.GetDespatchDate(productIds, orderDate);
+            var actualDespatchDateActionResult = controller.GetDespatchDate(productIds, orderDate);
 
             //Assert
+            var actualDespatchDate = actualDespatchDateActionResult.Value as DespatchDate;
             actualDespatchDate.ShouldBe<DespatchDate>(expectedDespatchDate);
+        }
+
+        [Fact]
+        public void Test_GetDespatchDate_ReturnsNotFoundResult_WhenCalledWithNonExistentProductId()
+        {
+            //Arrange
+            var nonExistentProductIds = new List<int>() {18};
+            mockMediator.Setup(x => x.Send(It.Is<Order>(x => x.ProductIds == nonExistentProductIds && x.OrderDate == orderDate), default(CancellationToken))).Returns(Task.FromResult((DespatchDate)null));
+
+            //Act
+            var actualDespatchDateActionResult = controller.GetDespatchDate(nonExistentProductIds, orderDate);
+
+            //Assert
+            actualDespatchDateActionResult.Result.ShouldBeOfType<NotFoundResult>();
         }
     }
 }

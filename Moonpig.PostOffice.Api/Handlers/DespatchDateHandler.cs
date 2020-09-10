@@ -20,6 +20,11 @@ namespace Moonpig.PostOffice.Api.Handlers
 
         public Task<DespatchDate> Handle(Order order, CancellationToken cancellationToken)
         {
+            var doProductsExist = productRepository.DoProductsExist(order.ProductIds);
+            if(!doProductsExist)
+            {
+                return Task.FromResult((DespatchDate)null);
+            }
             DateTime maxLeadTime = order.OrderDate;
             foreach (var productId in order.ProductIds)
             {

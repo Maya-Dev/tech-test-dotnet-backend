@@ -8,7 +8,7 @@
     using Models;
 
     [Route("api/[controller]")]
-    public class DespatchDateController : Controller
+    public class DespatchDateController : ControllerBase
     {
         private readonly IMediator mediator;
 
@@ -18,9 +18,14 @@
         }
 
         [HttpGet]
-        public DespatchDate GetDespatchDate(List<int> productIds, DateTime orderDate)
+        public ActionResult<DespatchDate> GetDespatchDate(List<int> productIds, DateTime orderDate)
         {
-            return mediator.Send(new Order(){ OrderDate = orderDate, ProductIds = productIds }).Result;
+            var despatchDate = mediator.Send(new Order(){ OrderDate = orderDate, ProductIds = productIds }).Result;
+            if(despatchDate == null)
+            {
+                return NotFound();
+            }
+            return despatchDate;
         }
     }
 }
