@@ -1,4 +1,4 @@
-namespace Moonpig.PostOffice.Tests.UnitTests.Controllers
+namespace Moonpig.PostOffice.Tests.UnitTests.Handlers
 {
     using System;
     using System.Collections.Generic;
