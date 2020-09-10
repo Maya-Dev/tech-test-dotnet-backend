@@ -1,5 +1,6 @@
 ﻿namespace Moonpig.PostOffice.Api
 {
+    using Hellang.Middleware.ProblemDetails;
     using MediatR;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Hosting;
@@ -26,6 +27,7 @@
             services.AddTransient<IDbContext, DbContext>();
             services.AddTransient<IProductRepository, ProductRepository>();
             services.AddTransient<ISupplierRepository, SupplierRepository>();
+            services.AddProblemDetails();
             services.AddControllers();
         }
 
@@ -42,6 +44,8 @@
             app.UseRouting();
 
             app.UseAuthorization();
+
+            app.UseProblemDetails();
 
             app.UseEndpoints(endpoints =>
             {
