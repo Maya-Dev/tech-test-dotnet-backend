@@ -101,12 +101,49 @@ document.
 Q1. What 'code smells' / anti-patterns did you find in the existing 
 	implemention of part 1 & 2?
 
-Q2. What best pracices have you used while implementing your solution?
+Api:
+* DbContext was instantiated inside the controller instead of being injected in
+* Controller derived from Microsoft.AspNetCore.Mvc.Controller which added unnecessary View support
+* Controller action had too much business logic, not very lightweight or Single Responsibility
+* Variable names not descriptive
+* ID variable should have been camel case, while _mlt was a (unnecessarily) public variable using a private variable naming convention
+
+Data:
+* Contained bad data - there was a product that linked to a non-existent supplier
+
+Tests:
+* Not testing individual units
+* Controller instantiated in every test - repeated code
+* Lots of individual tests that were very similar, again meaning repeated code
+* No mocking
+* Use of DateTime.Now meant that the tests would fail on certain days
+
+Q2. What best practices have you used while implementing your solution?
+
+* Lightweight controller only performing logic relating to the request and response. Has no knowledge of any business logic thanks to use of MediatR.
+* Used dependency injection to ensure classes had no knowledge of concrete implementations where this was not necessary. This also allowed for the use of mocking in the unit tests.
+* Used interfaces where appropriate
+* Separated methods where appropriate for clarity and to ensure Single Responsibility principle adhered to.
+* All database calls contained in repositories, so not tightly coupled to rest of the solution. This means swapping the current DbContext for an EntityFramework one should not have an effect on the rest of the code.
+* Descriptive variable and method names, and stuck to same naming convention throughout
+* Added validation to avoid a call getting half way through processing before discovering that the request data was not valid.
+* Added problem details middleware to be more aligned to RFC 7807, that outlines the standard of error responses. Also ensures these are consistent for every response.
+* Removed faulty data to avoid a 500 error being returned to the client after some processing may have already gone ahead. Tagged it with a todo comment, which should be picked up by code quality software so it can't be forgotten about. In a real scenario, resolving this properly, by finding the correct supplier or removing the product for good, would be top priority.
+* Complete set of unit tests that ensure any future changes don't break the existing functionality. Tests are combined where appropriate and are completely independent.
 
 Q3. What further steps would you take to improve the solution given more time?
 
+* Add integration tests to ensure working end to end
+* Add a Swagger front end to provide living documentation and an easily method to call the endpoint
+* Add logging to collect data on how the API is used and to help with debugging any production errors
+* Add a custom binder so the list query string can be sent via a comma separated string
+* Find out from the client if any request or response headers would be useful to them, and add these
+* Add some form of authentication to ensure only the right people have access
+
 Q4. What's a technology that you're excited about and where do you see this 
     being applicable? (Your answer does not have to be related to this problem)
+	
+A new technology I am excited about is Postman's newly launched web client. It contains most of the features of the desktop version but is now accessible inside a browser. This will mean no need to install Postman onto any device I wish to use it on - instead I can simply navigate to the URL and get started quickly. One feature that sounds especially useful is that everything in the tool now has a URL. This will make collaboration between developers far easier as they can simply send a link to a resource for their co-worker to view. Using the desktop version in the past, if another developer wanted my thoughts on an API response, I would have to recreate their request on my own machine. This new browser interface would eliminate the need for that, allowing me to quickly respond to their query without wasting time on any setup. The new tool is applicable for any API work, including any future work being done in this solution.
 
 ## Request and Response Examples
 
