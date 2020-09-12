@@ -9,6 +9,8 @@
     using Microsoft.Extensions.Hosting;
     using Moonpig.PostOffice.Api.Repositories.Concretes;
     using Moonpig.PostOffice.Api.Repositories.Contracts;
+    using Moonpig.PostOffice.Api.Services.Concretes;
+    using Moonpig.PostOffice.Api.Services.Contracts;
     using Moonpig.PostOffice.Data;
 
     public class Startup
@@ -34,6 +36,7 @@
             services.AddTransient<IDbContext, DbContext>();
             services.AddTransient<IProductRepository, ProductRepository>();
             services.AddTransient<ISupplierRepository, SupplierRepository>();
+            services.AddTransient<IDespatchDateService, DespatchDateService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

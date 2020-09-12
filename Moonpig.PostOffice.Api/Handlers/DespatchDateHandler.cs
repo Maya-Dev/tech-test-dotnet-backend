@@ -6,16 +6,19 @@ namespace Moonpig.PostOffice.Api.Handlers
     using MediatR;
     using Moonpig.PostOffice.Api.Models;
     using Moonpig.PostOffice.Api.Repositories.Contracts;
+    using Moonpig.PostOffice.Api.Services.Contracts;
 
     public class DespatchDateHandler : IRequestHandler<Order, DespatchDate>
     {
         private readonly IProductRepository productRepository;
         private readonly ISupplierRepository supplierRepository;
+        private readonly IDespatchDateService service;
 
-        public DespatchDateHandler(IProductRepository productRepository, ISupplierRepository supplierRepository)
+        public DespatchDateHandler(IProductRepository productRepository, ISupplierRepository supplierRepository, IDespatchDateService service)
         {
             this.productRepository = productRepository;
             this.supplierRepository = supplierRepository;
+            this.service = service;
         }
 
         public Task<DespatchDate> Handle(Order order, CancellationToken cancellationToken)
@@ -25,30 +28,23 @@ namespace Moonpig.PostOffice.Api.Handlers
             {
                 return Task.FromResult((DespatchDate)null);
             }
-            DateTime maxLeadTime = order.OrderDate;
+
+            DateTime baselineDate = service.GetSoonestNonWeekendDate(order.OrderDate);
+            DateTime maxLeadTime = baselineDate;
+
             foreach (var productId in order.ProductIds)
             {
                 var supplierId = productRepository.GetSupplierId(productId);
                 var supplierLeadTime = supplierRepository.GetLeadTime(supplierId);
-                if (order.OrderDate.AddDays(supplierLeadTime) > maxLeadTime)
+                if (baselineDate.AddDays(supplierLeadTime) > maxLeadTime)
                 {
-                    maxLeadTime = order.OrderDate.AddDays(supplierLeadTime);
+                    maxLeadTime = baselineDate.AddDays(supplierLeadTime);
                 }
             }
-            return Task.FromResult(new DespatchDate { Date = AccountForWeekend(maxLeadTime) });
-        }
 
-        private DateTime AccountForWeekend(DateTime maxLeadTime)
-        {
-            if (maxLeadTime.DayOfWeek == DayOfWeek.Saturday)
-            {
-                maxLeadTime = maxLeadTime.AddDays(2);
-            }
-            else if (maxLeadTime.DayOfWeek == DayOfWeek.Sunday)
-            {
-                maxLeadTime = maxLeadTime.AddDays(1);
-            }
-            return maxLeadTime;
+            maxLeadTime = service.GetDateWithWeekendsNotIncludedAsProcessingDays(baselineDate, maxLeadTime);
+            
+            return Task.FromResult(new DespatchDate { Date = service.GetSoonestNonWeekendDate(maxLeadTime) });
         }
     }
 }

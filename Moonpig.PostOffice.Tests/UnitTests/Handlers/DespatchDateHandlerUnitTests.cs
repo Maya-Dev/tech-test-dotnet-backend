@@ -9,16 +9,19 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Handlers
     using System.Threading;
     using Moonpig.PostOffice.Api.Repositories.Contracts;
     using Moonpig.PostOffice.Api.Handlers;
+    using Moonpig.PostOffice.Api.Services.Contracts;
 
     public class DespatchDateHandlerUnitTests
     {
         private readonly Mock<IProductRepository> mockProductRepository;
         private readonly Mock<ISupplierRepository> mockSupplierRepository;
+        private readonly Mock<IDespatchDateService> mockService;
         private readonly DespatchDateHandler handler;
         private Order order;
         private DespatchDate expectedDespatchDate;
         private int supplierId;
         private int productId;
+        private int supplierLeadTime;
 
         public DespatchDateHandlerUnitTests()
         {
@@ -28,12 +31,14 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Handlers
             };
             mockProductRepository = new Mock<IProductRepository>();
             mockSupplierRepository = new Mock<ISupplierRepository>();
-            handler = new DespatchDateHandler(mockProductRepository.Object, mockSupplierRepository.Object);
+            mockService = new Mock<IDespatchDateService>();
+            handler = new DespatchDateHandler(mockProductRepository.Object, mockSupplierRepository.Object, mockService.Object);
             
             supplierId = 1;
             productId = 1;
+            supplierLeadTime = 3;
             mockProductRepository.Setup(x => x.GetSupplierId(productId)).Returns(supplierId);
-            mockSupplierRepository.Setup(x => x.GetLeadTime(supplierId)).Returns(3);
+            mockSupplierRepository.Setup(x => x.GetLeadTime(supplierId)).Returns(supplierLeadTime);
         }
 
         [Fact]
@@ -68,34 +73,6 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Handlers
 
             //Assert
             mockSupplierRepository.Verify(x => x.GetLeadTime(supplierId), Times.Once);
-        }
-
-        [Theory]
-        [InlineData("2020-01-01", "2020-01-06")]
-        [InlineData("2020-01-02", "2020-01-06")]
-        [InlineData("2020-01-03", "2020-01-06")]
-        [InlineData("2020-01-04", "2020-01-07")]
-        [InlineData("2020-01-05", "2020-01-08")]
-        [InlineData("2020-01-06", "2020-01-09")]
-        [InlineData("2020-01-07", "2020-01-10")]
-        public void Test_Handle_ReturnsTheCorrectDespatchDate_ForEachDayOfTheWeekTheLeadTimeCanBe(DateTime orderDate, DateTime despatchDate)
-        {
-            //Arrange
-            order = new Order(){
-                ProductIds = new List<int>() {productId},
-                OrderDate = orderDate
-            };
-            expectedDespatchDate = new DespatchDate()
-            {
-                Date = despatchDate
-            };
-            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
-
-            //Act
-            var actualDespatchDate = handler.Handle(order, default(CancellationToken)).Result;
-
-            //Assert
-            actualDespatchDate.Date.ShouldBe(expectedDespatchDate.Date);
         }
 
         [Fact]
@@ -140,15 +117,46 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Handlers
             //Arrange
             order = new Order(){
                 ProductIds = new List<int>() {productIdOne, productIdTwo},
-                OrderDate = new DateTime(2020, 09, 09)
+                OrderDate = new DateTime(2020, 09, 07)
             };
             expectedDespatchDate = new DespatchDate()
             {
-                Date = new DateTime(2020, 09, 14)
+                Date = order.OrderDate.AddDays(supplierLeadTime)
             };
             mockProductRepository.Setup(x => x.GetSupplierId(2)).Returns(2);
             mockSupplierRepository.Setup(x => x.GetLeadTime(2)).Returns(1);
             mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(order.OrderDate)).Returns(order.OrderDate);
+            mockService.Setup(x => x.GetDateWithWeekendsNotIncludedAsProcessingDays(order.OrderDate, expectedDespatchDate.Date)).Returns(expectedDespatchDate.Date);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(expectedDespatchDate.Date)).Returns(expectedDespatchDate.Date);
+
+            //Act
+            var actualDespatchDate = handler.Handle(order, default(CancellationToken)).Result;
+
+            //Assert
+            actualDespatchDate.Date.ShouldBe(expectedDespatchDate.Date);
+        }
+
+        [Theory]
+        [InlineData(1, 3)]
+        [InlineData(2, 1)]
+        public void Test_Handle_ReturnsTheCorrectDespatchDate_WhenCalledWithOneProductId(int productIdParam, int supplierLeadTimeParam)
+        {
+            //Arrange
+            order = new Order(){
+                ProductIds = new List<int>() {productIdParam},
+                OrderDate = new DateTime(2020, 09, 07)
+            };
+            expectedDespatchDate = new DespatchDate()
+            {
+                Date = order.OrderDate.AddDays(supplierLeadTimeParam)
+            };
+            mockProductRepository.Setup(x => x.GetSupplierId(2)).Returns(2);
+            mockSupplierRepository.Setup(x => x.GetLeadTime(2)).Returns(1);
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(order.OrderDate)).Returns(order.OrderDate);
+            mockService.Setup(x => x.GetDateWithWeekendsNotIncludedAsProcessingDays(order.OrderDate, expectedDespatchDate.Date)).Returns(expectedDespatchDate.Date);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(expectedDespatchDate.Date)).Returns(expectedDespatchDate.Date);
 
             //Act
             var actualDespatchDate = handler.Handle(order, default(CancellationToken)).Result;
@@ -188,7 +196,7 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Handlers
             handler.Handle(order, default(CancellationToken));
 
             //Assert
-            mockProductRepository.Verify(x => x.GetSupplierId(productId), Times.Never);
+            mockProductRepository.Verify(x => x.GetSupplierId(It.IsAny<int>()), Times.Never);
         }
 
         [Fact]
@@ -205,7 +213,24 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Handlers
             handler.Handle(order, default(CancellationToken));
 
             //Assert
-            mockSupplierRepository.Verify(x => x.GetLeadTime(supplierId), Times.Never);
+            mockSupplierRepository.Verify(x => x.GetLeadTime(It.IsAny<int>()), Times.Never);
+        }
+
+        [Fact]
+        public void Test_Handle_DoesNotCallGetSoonestNonWeekendDate_WhenDoProductsExistsReturnsFalse()
+        {
+            //Arrange
+            order = new Order(){
+                ProductIds = new List<int>() {productId},
+                OrderDate = new DateTime(2020, 09, 09)
+            };
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(false);
+            
+            //Act
+            handler.Handle(order, default(CancellationToken));
+
+            //Assert
+            mockService.Verify(x => x.GetSoonestNonWeekendDate(It.IsAny<DateTime>()), Times.Never);
         }
 
         [Fact]
@@ -223,6 +248,119 @@ namespace Moonpig.PostOffice.Tests.UnitTests.Handlers
 
             //Assert
             actualDespatchDate.ShouldBeNull();
+        }
+
+        [Fact]
+        public void Test_Handle_CallsGetSoonestNonWeekendDateTwice_WhenDoProductsExistsReturnsTrue()
+        {
+            //Arrange
+            order = new Order(){
+                ProductIds = new List<int>() {productId},
+                OrderDate = new DateTime(2020, 09, 09)
+            };
+            expectedDespatchDate.Date = order.OrderDate.AddDays(supplierLeadTime);
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(order.OrderDate)).Returns(order.OrderDate);
+            mockService.Setup(x => x.GetDateWithWeekendsNotIncludedAsProcessingDays(order.OrderDate, expectedDespatchDate.Date)).Returns(expectedDespatchDate.Date);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(expectedDespatchDate.Date)).Returns(expectedDespatchDate.Date);
+            
+            //Act
+            handler.Handle(order, default(CancellationToken));
+
+            //Assert
+            mockService.Verify(x => x.GetSoonestNonWeekendDate(order.OrderDate), Times.Once);
+            mockService.Verify(x => x.GetSoonestNonWeekendDate(expectedDespatchDate.Date), Times.Once);
+        }
+
+        [Fact]
+        public void Test_Handle_CallsGetDateWithWeekendsNotIncludedAsProcessingDaysOnce_WhenDoProductsExistsReturnsTrue()
+        {
+            //Arrange
+            var productIdTwo = 2;
+            order = new Order(){
+                ProductIds = new List<int>() {productId, productIdTwo},
+                OrderDate = new DateTime(2020, 09, 09)
+            };
+            expectedDespatchDate.Date = order.OrderDate.AddDays(supplierLeadTime);
+            mockProductRepository.Setup(x => x.GetSupplierId(productIdTwo)).Returns(2);
+            mockSupplierRepository.Setup(x => x.GetLeadTime(2)).Returns(1);
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(order.OrderDate)).Returns(order.OrderDate);
+            mockService.Setup(x => x.GetDateWithWeekendsNotIncludedAsProcessingDays(order.OrderDate, expectedDespatchDate.Date)).Returns(expectedDespatchDate.Date);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(expectedDespatchDate.Date)).Returns(expectedDespatchDate.Date);
+            
+            //Act
+            handler.Handle(order, default(CancellationToken));
+
+            //Assert
+            mockService.Verify(x => x.GetDateWithWeekendsNotIncludedAsProcessingDays(order.OrderDate, expectedDespatchDate.Date), Times.Once);
+        }
+
+        [Fact]
+        public void Test_Handle_ReturnsCorrectDate_WhenGetSoonestNonWeekendDateWithOrderDateReturnsDifferentDate()
+        {
+            //Arrange
+            order = new Order(){
+                ProductIds = new List<int>() {productId},
+                OrderDate = new DateTime(2020, 09, 09)
+            };
+            var alteredDate = order.OrderDate.AddDays(1);
+            expectedDespatchDate.Date = alteredDate.AddDays(supplierLeadTime);
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(order.OrderDate)).Returns(alteredDate);
+            mockService.Setup(x => x.GetDateWithWeekendsNotIncludedAsProcessingDays(alteredDate, expectedDespatchDate.Date)).Returns(expectedDespatchDate.Date);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(expectedDespatchDate.Date)).Returns(expectedDespatchDate.Date);
+            
+            //Act
+            var despatchDate = handler.Handle(order, default(CancellationToken)).Result;
+
+            //Assert
+            despatchDate.Date.ShouldBe<DateTime>(expectedDespatchDate.Date);
+        }
+
+        [Fact]
+        public void Test_Handle_ReturnsCorrectDate_WhenGetDateWithWeekendsNotIncludedAsProcessingDaysWithOrderDateReturnsDifferentDate()
+        {
+            //Arrange
+            order = new Order(){
+                ProductIds = new List<int>() {productId},
+                OrderDate = new DateTime(2020, 09, 09)
+            };
+            var alteredDate = order.OrderDate.AddDays(1);
+            expectedDespatchDate.Date = alteredDate.AddDays(supplierLeadTime);
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(order.OrderDate)).Returns(order.OrderDate);
+            mockService.Setup(x => x.GetDateWithWeekendsNotIncludedAsProcessingDays(order.OrderDate, order.OrderDate.AddDays(supplierLeadTime))).Returns(expectedDespatchDate.Date);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(expectedDespatchDate.Date)).Returns(expectedDespatchDate.Date);
+            
+            //Act
+            var despatchDate = handler.Handle(order, default(CancellationToken)).Result;
+
+            //Assert
+            despatchDate.Date.ShouldBe<DateTime>(expectedDespatchDate.Date);
+        }
+
+        [Fact]
+        public void Test_Handle_ReturnsCorrectDate_WhenGetSoonestNonWeekendDateWithOrderDatePlusLeadTimeReturnsDifferentDate()
+        {
+            //Arrange
+            order = new Order(){
+                ProductIds = new List<int>() {productId},
+                OrderDate = new DateTime(2020, 09, 09)
+            };
+            var alteredDate = order.OrderDate.AddDays(1);
+            expectedDespatchDate.Date = alteredDate.AddDays(supplierLeadTime);
+            var orderDatePlusLeadTime = order.OrderDate.AddDays(supplierLeadTime);
+            mockProductRepository.Setup(x => x.DoProductsExist(order.ProductIds)).Returns(true);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(order.OrderDate)).Returns(order.OrderDate);
+            mockService.Setup(x => x.GetDateWithWeekendsNotIncludedAsProcessingDays(order.OrderDate, orderDatePlusLeadTime)).Returns(orderDatePlusLeadTime);
+            mockService.Setup(x => x.GetSoonestNonWeekendDate(orderDatePlusLeadTime)).Returns(expectedDespatchDate.Date);
+            
+            //Act
+            var despatchDate = handler.Handle(order, default(CancellationToken)).Result;
+
+            //Assert
+            despatchDate.Date.ShouldBe<DateTime>(expectedDespatchDate.Date);
         }
     }
 }
